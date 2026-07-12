@@ -48,12 +48,13 @@ int main(int ac, char **av) {
 	}
 // pour les bnus setsockopt pour le ttl
 // https://stackoverflow.com/questions/31066061/setting-ttl-on-outgoing-udp-packets
-	// while (1) {
-	sendEcho(&ping);
-	// 	stateTime();
-	// 	receveEcho();
-	// 	waitForSecond();
-	// }
+	
+	while (1) {
+		sendEcho(&ping);
+		receveEcho(&ping);
+		ping.seq++;
+		waitForSecond();
+	}
 
 	return (0);
 }

@@ -18,7 +18,7 @@ p_data	initStruct(char **av) {
 }
 
 void	recupAddrInfo(p_data *ping, char **av) {
-	// https://man7.org/linux/man-pages/man3/getaddrinfo.3.html
+// https://man7.org/linux/man-pages/man3/getaddrinfo.3.html
 	struct addrinfo hints;
 	struct addrinfo *result;
 

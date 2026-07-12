@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -41,6 +42,9 @@ p_data	initStruct(char **av);
 void	recupAddrInfo(p_data *ping, char **av);
 
 void	sendEcho(p_data *ping);
+uint16_t	calculateChecksum(uint16_t *buff, int buffLen);
+
+void    receveEcho(p_data *ping);
 
 
 #endif
