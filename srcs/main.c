@@ -18,6 +18,17 @@ void	handle_sigs(int sig) {
 	}
 }
 
+// struct sockaddr_in --> sert a definir la cible ou la source,
+// precis car contient protocol, adresse et port
+
+// struct sockaddr --> version generique de l'adresse reseau en C
+// sert pour les fonctions qui refusent sockaadr_in car plus generique
+// utilise uniquement : (struct sockaddr *)&ping->targetAddr
+
+// struct icmphdr --> le message IMCP
+// utiliser pour l'envoi des donnees du ping ou analyser la reception
+// c'est elle qui calcul le checksum a l'envoi et a la reception
+
 int main(int ac, char **av) {
 	if (ac != 2) {
 		fprintf(stderr, "ping: usage error: Destination address required");

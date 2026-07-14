@@ -15,6 +15,7 @@
 #include <netinet/ip_icmp.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
+#include <errno.h>
 
 typedef struct ping_data
 {
