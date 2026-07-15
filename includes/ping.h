@@ -31,6 +31,8 @@ typedef struct ping_data
 	long	pack_recv; // package recus
 	int		pack_loss;
 
+	double	rtt_total;
+	double	sq_rtt_total; // rtt au carre pour stddev
 	double	rtt_min; // reponse la + rapide
 	double	rtt_max; // reponse la plus lente
 	double	rtt_avg; // moyenne de tous les rtt
@@ -46,6 +48,5 @@ void	sendEcho(p_data *ping);
 uint16_t	calculateChecksum(uint16_t *buff, int buffLen);
 
 void    receveEcho(p_data *ping);
-
 
 #endif

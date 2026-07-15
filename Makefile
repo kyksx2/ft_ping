@@ -2,7 +2,8 @@ NAME = ft_ping
 
 SRC =	srcs/main.c \
 		srcs/init.c \
-		srcs/message.c
+		srcs/send.c \
+		srcs/receive.c
 
 OBJ = $(SRC:.c=.o)
 

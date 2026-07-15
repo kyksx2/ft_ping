@@ -10,10 +10,11 @@ p_data	initStruct(char **av) {
 	ping.pack_trans = 0;
 	ping.pack_recv = 0;
 	ping.pack_loss = 0;
-	ping.rtt_min = 0;
-	ping.rtt_max = 0;
-	ping.rtt_avg = 0;
-	ping.rtt_stddev = 0;
+	ping.rtt_total = 0.0;
+	ping.rtt_min = 0.0;
+	ping.rtt_max = 0.0;
+	ping.rtt_avg = 0.0;
+	ping.rtt_stddev = 0.0;
 	return ping;
 }
 

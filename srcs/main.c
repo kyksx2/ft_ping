@@ -5,9 +5,10 @@ p_data	*ping_signal = NULL;
 
 void	handle_sigs(int sig) {
 	if (sig == SIGINT) {
+		ping_signal->rtt_avg = ping_signal->rtt_total / ping_signal->pack_recv;
 		printf("--- %s ping statistics ---\n", ping_signal->hostname);
-		printf("%d packets transmitted, %d packets received, %d\% packet loss\n", ping_signal->pack_trans, ping_signal->pack_recv, ping_signal->pack_loss);
-		printf("round-trip min/avg/max/stddev = %d/%d/%d/%d ms\n", ping_signal->rtt_min, ping_signal->rtt_avg, ping_signal->rtt_max, ping_signal->rtt_stddev);
+		printf("%d packets transmitted, %d packets received, %d%% packet loss\n", ping_signal->pack_trans, ping_signal->pack_recv, ping_signal->pack_loss);
+		printf("round-trip min/avg/max/stddev = %.3f/%.3f/%.3f/%.3f ms\n", ping_signal->rtt_min, ping_signal->rtt_avg, ping_signal->rtt_max, ping_signal->rtt_stddev);
 		// free_all
 		exit(0);
 	}
@@ -57,14 +58,18 @@ int main(int ac, char **av) {
 		// free_all
 		return (1);
 	}
-// pour les bnus setsockopt pour le ttl
-// https://stackoverflow.com/questions/31066061/setting-ttl-on-outgoing-udp-packets
-	
+	// pour les bnus setsockopt pour le ttl
+	// https://stackoverflow.com/questions/31066061/setting-ttl-on-outgoing-udp-packets
+	printf("PING %s (%s): 56 data bytes\n", ping.hostname, ping.ip);
+	// 56 est la taille du msg 64 = 56 + 8 (octets de l'en-tete)
 	while (1) {
 		sendEcho(&ping);
 		receveEcho(&ping);
 		ping.seq++;
-		waitForSecond();
+        if (ping.pack_trans > 0)
+	        ping.pack_loss = ((ping.pack_trans - ping.pack_recv) * 100) / ping.pack_trans;
+		// waitForSecond();
+		sleep(1);
 	}
 
 	return (0);
