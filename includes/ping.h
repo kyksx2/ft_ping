@@ -7,6 +7,8 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <stdbool.h>
+#include <math.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -16,6 +18,14 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <errno.h>
+
+typedef struct s_args
+{
+	bool	verbose;
+	bool	ttl_use;
+	int		ttl;
+	char	*hostname;
+}	t_args;
 
 typedef struct ping_data
 {
@@ -31,21 +41,24 @@ typedef struct ping_data
 	long	pack_recv; // package recus
 	int		pack_loss;
 
+	bool	verbose;
+
 	double	rtt_total;
-	double	sq_rtt_total; // rtt au carre pour stddev
+	int		rtt_count;
+	double	rtt_sq_total; // rtt au carre pour stddev
 	double	rtt_min; // reponse la + rapide
 	double	rtt_max; // reponse la plus lente
 	double	rtt_avg; // moyenne de tous les rtt
-	double	rtt_stddev; // deviation moyenne
+	double	rtt_stddev; // ecart type des rtt
 }	p_data;
 //! penser a calculer les temps d'envoi du paquet, le temp general, le pourcentage de paquets perdu
+
 extern p_data			*ping_signal;
 
-p_data	initStruct(char **av);
-void	recupAddrInfo(p_data *ping, char **av);
+p_data	initStruct(t_args args);
+void	recupAddrInfo(p_data *ping);
 
 void	sendEcho(p_data *ping);
-uint16_t	calculateChecksum(uint16_t *buff, int buffLen);
 
 void    receveEcho(p_data *ping);
 

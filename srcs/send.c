@@ -1,6 +1,6 @@
 #include "../includes/ping.h"
 
-uint16_t	calculateChecksum(uint16_t *buff, int buffLen) {
+static uint16_t	calculateChecksum(uint16_t *buff, int buffLen) {
 	uint32_t sum = 0;
  	// checksum additionne 32 nombres de 16 bits
 

@@ -8,7 +8,7 @@ SRC =	srcs/main.c \
 OBJ = $(SRC:.c=.o)
 
 all : ${OBJ}
-	@cc ${OBJ} -o ${NAME}
+	@cc ${OBJ} -o ${NAME} -lm
 
 clean :
 	@rm -f ${OBJ} ${OBJ_BONUS}
