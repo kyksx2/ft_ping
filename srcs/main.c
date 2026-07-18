@@ -2,19 +2,20 @@
 
 p_data	*ping_signal = NULL;
 
+// avg = moyenne -> (n + n1 + n2 + n3 + ....) / n total
+// stddev = ecart type -> (sq_total / pack_recus) - (rtt_moyen²)
+// a la fin il faut mettre le resultat au carre
+// formule donne par gemini pour eviter la liste chainee + malloc
 static void calculAvgStddev(p_data *ping_signal) {
 	ping_signal->rtt_avg = ping_signal->rtt_total / ping_signal->pack_recv;
-	// avg = moyenne -> (n + n1 + n2 + n3 + ....) / n total
-	// stddev = ecart type -> ((rtt2) - ((rtt2) / N) / N - 1)
-	// a la fin il faut mettre le resultat au carre
-	// rtt2 --> somme des rtt au carre
-	// N --> total nombre de rtt
-	// formule donne par gemini pour eviter la liste chainee + malloc
 	if (ping_signal->rtt_count <= 1) {
 		return;
 	}
 	else {
-		double variance = (ping_signal->rtt_sq_total - (ping_signal->rtt_sq_total / ping_signal->rtt_count)) / ping_signal->rtt_count - 1;
+		double variance =  (ping_signal->rtt_sq_total / ping_signal->pack_recv) -
+						   (ping_signal->rtt_avg * ping_signal->rtt_avg);
+		if (variance < 0)
+			variance = 0;
 		ping_signal->rtt_stddev = sqrt(variance);
 	}
 }
@@ -23,7 +24,7 @@ void	handle_sigs(int sig) {
 	if (sig == SIGINT) {
 		calculAvgStddev(ping_signal);
 		printf("--- %s ping statistics ---\n", ping_signal->hostname);
-		printf("%d packets transmitted, %d packets received, %d%% packet loss\n", ping_signal->pack_trans, ping_signal->pack_recv, ping_signal->pack_loss);
+		printf("%ld packets transmitted, %ld packets received, %d%% packet loss\n", ping_signal->pack_trans, ping_signal->pack_recv, ping_signal->pack_loss);
 		if (ping_signal->pack_recv > 0)
 			printf("round-trip min/avg/max/stddev = %.3f/%.3f/%.3f/%.3f ms\n", ping_signal->rtt_min, ping_signal->rtt_avg, ping_signal->rtt_max, ping_signal->rtt_stddev);
 		close(ping_signal->sock_fd);
@@ -49,7 +50,7 @@ void	handle_sigs(int sig) {
 
 static t_args	getArgs(int ac, char **av) {
 	if (ac < 2) {
-		fprintf(stderr, "ft_ping: usage error: Destination address required");
+		fprintf(stderr, "ft_ping: usage error: Destination address required\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -122,8 +123,6 @@ int main(int ac, char **av) {
 		}
 
 	}
-	// pour les bonus setsockopt pour le ttl
-	// https://stackoverflow.com/questions/31066061/setting-ttl-on-outgoing-udp-packets
 	if (ping.verbose) {
 		uint16_t id = (uint16_t)getpid();
 		printf("PING %s (%s): 56 data bytes, id 0x%04x = %d\n", ping.hostname, ping.ip, id, id);

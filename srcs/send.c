@@ -29,6 +29,10 @@ static uint16_t	calculateChecksum(uint16_t *buff, int buffLen) {
 	return (uint16_t)(~sum);
 }
 
+// utilisation de htons() pour passer en uint16_t version net
+// La fonction htons() (host to network short) convertit l’entier court non signé
+// 'hostshort' de l’ordre des octets de l’hôte à l’ordre des octets du réseau. 
+// https://www.man-linux-magique.net/man3/htons.html
 void	sendEcho(p_data *ping) {
 	char	buff[64]; // on envoi un msg de 64 octets
 	memset(buff, 0, sizeof(buff));
@@ -40,10 +44,6 @@ void	sendEcho(p_data *ping) {
 	s.checksum = 0;
 	s.un.echo.id = htons(getpid()); // le pid permetde verifier que c'est bien moi a la reception
 	s.un.echo.sequence = htons(ping->seq); // juste le compteur a incrementer a chaque ping
- 	// utilisation de htons() pour passer en uint16_t version net
- 	// La fonction htons() (host to network short) convertit l’entier court non signé
- 	// 'hostshort' de l’ordre des octets de l’hôte à l’ordre des octets du réseau. 
- 	// https://www.man-linux-magique.net/man3/htons.html
 	
 	memcpy(buff, &s, sizeof(s));
 	
@@ -53,8 +53,6 @@ void	sendEcho(p_data *ping) {
 
 	struct icmphdr *icmp_buff = (struct icmphdr *)buff;
 	icmp_buff->checksum = calculateChecksum((uint16_t *)buff, sizeof(buff));
-	// checksum a faire
 	sendto(ping->sock_fd, buff, sizeof(buff), 0, (struct sockaddr *)&ping->targetAddr, sizeof(ping->targetAddr));
-	// verif send to
 	ping->pack_trans++;
 }
