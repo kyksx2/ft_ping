@@ -140,13 +140,20 @@ int main(int ac, char **av) {
 	time.tv_usec = 0;
 	if (setsockopt(ping.sock_fd, IPPROTO_ICMP, SO_RCVTIMEO, &time,sizeof(time)) < 0) {
 		close(ping.sock_fd);
-		perror("setsockopt");
+		perror("set time");
+		return (1);
+	}
+	int broadcast_enable = 1;
+	// juste pour pouvoir ping les broadcast sinon le noyau l'empeche
+	if (setsockopt(ping.sock_fd, IPPROTO_ICMP, SO_BROADCAST, &broadcast_enable, sizeof(broadcast_enable)) < 0) {
+		close(ping.sock_fd);
+		perror("set broadcast");
 		return (1);
 	}
 	if (args.ttl_use) {
 		if (setsockopt(ping.sock_fd, IPPROTO_IP, IP_TTL, &ping.ttl, sizeof(ping.ttl)) < 0) {
 			close(ping.sock_fd);
-			perror("setsockopt");
+			perror("set ttl");
 			return (1);
 		}
 	}

@@ -42,24 +42,59 @@ static void    doAnswer(struct icmphdr *icmp_r_buff, char * buff, p_data *ping, 
 // | 4. En-tête ICMP d'Origine (8 octets) [Inclus dans le corps ICMP]  |
 // +-------------------------------------------------------------------+
 
-static void TimeExceededVerbose(char *buff, struct icmphdr *icmp_r_buff, p_data *ping) {
+static void TimeExceededVerbose(char *buff, struct icmphdr *icmp_r_buff, int t) {
     struct iphdr *ip = (struct iphdr *)buff;
     int ip_len = ip->ihl * 4;
-    struct iphdr *origin_ip = (struct iphdr *)(buff + ip_len +)
+
     // https://datatracker.ietf.org/doc/html/rfc791#section-3.1 + rfc icmp "Time Exceeded Message"
     //! ihl (internet header lenght) ne contien pas de nombre mais stock 32 bits, c'est a dire 4 octets
     //? la taillle standard d'une ip est 20 octets
     // 32 bits dans ce cas fait 20 / 4 = 5 (valeur de ihl)
     // je pourrais faire char *icmp_start = buff + 20 mais parfois l'en-tete ip est plus grande
     //! ce qui nous interesse c'est / 4 car si un octet arrive avec des options, c'est ihl qui sera different
+    struct iphdr *origin_ip = (struct iphdr *)(buff + ip_len + sizeof(struct icmphdr));
+    int origin_ip_len = origin_ip->ihl * 4;
     
+    struct icmphdr *origin_icmp = (struct icmphdr *)((char *)origin_ip + origin_ip_len);
+    unsigned char *ip_raw = (unsigned char *)origin_ip;
+
+    char return_addr[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &ip->saddr,return_addr, INET_ADDRSTRLEN);
+    printf("%d bytes from %s: Time to live exceeded\n",(t - ip_len), return_addr);
     
-    printf("%d bytes from %s: Time to live exceeded\n",);
+    int size = sizeof(origin_icmp);
     printf("IP Hdr Dump:\n");
-    printf("\n",);
-    printf("Vr Hl TOS Len ID Flg off TTL Pro cks    Src Dst Data\n");
-    printf("\n",);
-    printf("ICMP: type %d, code %d, size %d, id 0x%04x, sq 0x%04x\n",);
+    for (int i = 0; i < origin_ip_len; i++) {
+        printf("%02x", ip_raw[i]);
+        if ((i + 1) % 2 == 0)
+            printf(" ");
+    }
+    printf("\n");
+    char src[INET_ADDRSTRLEN], dst[INET_ADDRSTRLEN];
+    // https://man7.org/linux/man-pages/man3/inet_ntop.3.html
+    inet_ntop(AF_INET, &origin_ip->saddr, src, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &origin_ip->daddr, dst, INET_ADDRSTRLEN);
+    printf("Vr HL TOS  Len   ID Flg  off TTL Pro  cks      Src	Dst	Data\n");
+    printf(" %1x  %1x  %02x %04x %04x   %1x %04x  %02x  %02x %04x %s  %s\n",
+        origin_ip->version,
+        origin_ip->ihl,
+        origin_ip->tos,
+        ntohs(origin_ip->tot_len),
+        ntohs(origin_ip->id),
+// Flg et off -> Flags + Fragment Offset dans l'ip header (16 bits) (voir readme)
+        (ntohs(origin_ip->frag_off) >> 13) & 0x07, // decalage de 13 bits on garde les 3 de gauche avec un masque --> en binaire 7 = 0000 0111
+        ntohs(origin_ip->frag_off) & 0x1FFF, // 0x1FFF correspond a 0001 1111 1111 1111 --> ici le masque s'applique au 13 bits faibles
+        origin_ip->ttl,
+        origin_ip->protocol,
+        ntohs(origin_ip->check),
+        src, dst);
+
+        int origin_size = t - ip_len - sizeof(struct icmphdr) - origin_ip_len;
+        uint16_t origin_id = ntohs(origin_icmp->un.echo.id);
+        uint16_t origin_seq = ntohs(origin_icmp->un.echo.sequence);
+        printf("ICMP: type %d, code %d, size %d, id 0x%04x, sq 0x%04x\n",
+        origin_icmp->type, origin_icmp->code,
+        origin_size, origin_id, origin_seq);
 }
 
 // type 3: Destination unreachable
@@ -75,7 +110,7 @@ static void TimeExceededVerbose(char *buff, struct icmphdr *icmp_r_buff, p_data 
 //          - 1 -> fragment reassembly time exceeded
 //  From <ip> icmp_seq=X Time to live exceeded
 // rfc : https://datatracker.ietf.org/doc/html/rfc792
-static void    handleIcmpError(struct icmphdr *icmp_buff, p_data *ping, char *buff) {
+static void    handleIcmpError(struct icmphdr *icmp_buff, p_data *ping, char *buff, int t) {
     // error ICMP
     if (icmp_buff->type == ICMP_DEST_UNREACH) {
         switch (icmp_buff->code) {
@@ -104,14 +139,7 @@ static void    handleIcmpError(struct icmphdr *icmp_buff, p_data *ping, char *bu
     }
     else if (icmp_buff->type == ICMP_TIME_EXCEEDED) {
         if (ping->verbose)
-            TimeExceededVerbose(buff, icmp_buff, ping);
-        //     uint16_t id = (uint16_t)getpid();
-        //     printf("IP Hdr Dump:\n");
-        //     printf("\n");
-        //     printf("Vr HL TOS Len   ID Flg off TTL Pro cks  Src Dst Data\n");
-        //     printf("\n");
-        //     printf("ICMP: type %d, code %d, size %d, id 0x%04x, seq 0x%04x\n", icmp_buff->type, icmp_buff->code, ping->size, id, ping->seq);
-        // }
+            TimeExceededVerbose(buff, icmp_buff, t);
         else
             printf("From %s icmp_seq=%d Time to live exceeded\n", ping->ip, ping->seq);
     }
@@ -134,15 +162,12 @@ void    receveEcho(p_data *ping) {
     socklen_t len = sizeof(add_buff);
 
     ssize_t t = recvfrom(ping->sock_fd, buff, sizeof(buff), 0,(struct sockaddr *)&add_buff, &len);
-    https://man7.org/linux/man-pages/man3/recvfrom.3p.html
+    // https://man7.org/linux/man-pages/man3/recvfrom.3p.html
     if(t == -1) {
-        // if (errno == EWOULDBLOCK || errno == EAGAIN) {
-        //     printf("Request timeout for icmp_seq %d\n", ping->seq);
-        // }
         if (errno == EINTR)
             return;
     }
-    else if (t == 0)
+    if (t == 0)
         printf("Error: empty packet receive\n");
     else {
         struct icmphdr *icmp_r_buff = (struct icmphdr *)(buff + 20);
@@ -152,7 +177,7 @@ void    receveEcho(p_data *ping) {
             doAnswer(icmp_r_buff, buff, ping, t);
         }
         else {
-            handleIcmpError(icmp_r_buff, ping, buff);
+            handleIcmpError(icmp_r_buff, ping, buff, t);
         }
     }
 }
