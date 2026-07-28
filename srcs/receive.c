@@ -6,7 +6,7 @@ static void    doAnswer(struct icmphdr *icmp_r_buff, char * buff, p_data *ping, 
     if (ntohs(icmp_r_buff->un.echo.id) == getpid()) {
         struct iphdr *ip = (struct iphdr *)buff;
         // permet de decoder la premiere couche (ip) du buff
-        int size = t - 20; // les 20 octets de l'en-tete ip
+        ping->size = t - 20; // les 20 octets de l'en-tete ip
         ping->ttl = ip->ttl;
         ping->pack_recv++;
         struct timeval time_send = *(struct timeval*)((char *)icmp_r_buff + sizeof(struct icmphdr));
@@ -24,11 +24,42 @@ static void    doAnswer(struct icmphdr *icmp_r_buff, char * buff, p_data *ping, 
             ping->rtt_max = rtt;
         }
         printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.3f\n",
-            size, ping->ip, ping->seq, ping->ttl, rtt);
+            ping->size, ping->ip, ping->seq, ping->ttl, rtt);
         ping->rtt_total += rtt;
         ping->rtt_count++;
         ping->rtt_sq_total += (rtt * rtt);
     }
+}
+
+// reponse paquet
+// +-------------------------------------------------------------------+
+// | 1. En-tête IP de la Réponse (20 octets)                           |
+// +-------------------------------------------------------------------+
+// | 2. En-tête ICMP d'Erreur (8 octets : Type 11, Code 0...)          |
+// +-------------------------------------------------------------------+
+// | 3. En-tête IP d'Origine (20 octets) [Inclus dans le corps ICMP]   |
+// +-------------------------------------------------------------------+
+// | 4. En-tête ICMP d'Origine (8 octets) [Inclus dans le corps ICMP]  |
+// +-------------------------------------------------------------------+
+
+static void TimeExceededVerbose(char *buff, struct icmphdr *icmp_r_buff, p_data *ping) {
+    struct iphdr *ip = (struct iphdr *)buff;
+    int ip_len = ip->ihl * 4;
+    struct iphdr *origin_ip = (struct iphdr *)(buff + ip_len +)
+    // https://datatracker.ietf.org/doc/html/rfc791#section-3.1 + rfc icmp "Time Exceeded Message"
+    //! ihl (internet header lenght) ne contien pas de nombre mais stock 32 bits, c'est a dire 4 octets
+    //? la taillle standard d'une ip est 20 octets
+    // 32 bits dans ce cas fait 20 / 4 = 5 (valeur de ihl)
+    // je pourrais faire char *icmp_start = buff + 20 mais parfois l'en-tete ip est plus grande
+    //! ce qui nous interesse c'est / 4 car si un octet arrive avec des options, c'est ihl qui sera different
+    
+    
+    printf("%d bytes from %s: Time to live exceeded\n",);
+    printf("IP Hdr Dump:\n");
+    printf("\n",);
+    printf("Vr Hl TOS Len ID Flg off TTL Pro cks    Src Dst Data\n");
+    printf("\n",);
+    printf("ICMP: type %d, code %d, size %d, id 0x%04x, sq 0x%04x\n",);
 }
 
 // type 3: Destination unreachable
@@ -44,7 +75,7 @@ static void    doAnswer(struct icmphdr *icmp_r_buff, char * buff, p_data *ping, 
 //          - 1 -> fragment reassembly time exceeded
 //  From <ip> icmp_seq=X Time to live exceeded
 // rfc : https://datatracker.ietf.org/doc/html/rfc792
-static void    handleIcmpError(struct icmphdr *icmp_buff, p_data *ping) {
+static void    handleIcmpError(struct icmphdr *icmp_buff, p_data *ping, char *buff) {
     // error ICMP
     if (icmp_buff->type == ICMP_DEST_UNREACH) {
         switch (icmp_buff->code) {
@@ -72,7 +103,17 @@ static void    handleIcmpError(struct icmphdr *icmp_buff, p_data *ping) {
         }
     }
     else if (icmp_buff->type == ICMP_TIME_EXCEEDED) {
-        printf("From %s icmp_seq=%d Time to live exceeded\n", ping->ip, ping->seq);
+        if (ping->verbose)
+            TimeExceededVerbose(buff, icmp_buff, ping);
+        //     uint16_t id = (uint16_t)getpid();
+        //     printf("IP Hdr Dump:\n");
+        //     printf("\n");
+        //     printf("Vr HL TOS Len   ID Flg off TTL Pro cks  Src Dst Data\n");
+        //     printf("\n");
+        //     printf("ICMP: type %d, code %d, size %d, id 0x%04x, seq 0x%04x\n", icmp_buff->type, icmp_buff->code, ping->size, id, ping->seq);
+        // }
+        else
+            printf("From %s icmp_seq=%d Time to live exceeded\n", ping->ip, ping->seq);
     }
 }
 
@@ -111,7 +152,60 @@ void    receveEcho(p_data *ping) {
             doAnswer(icmp_r_buff, buff, ping, t);
         }
         else {
-            handleIcmpError(icmp_r_buff, ping);
+            handleIcmpError(icmp_r_buff, ping, buff);
         }
     }
 }
+
+// static void TimeExceededVerbose(char *buff, struct icmphdr *icmp_r_buff, p_data *ping) {
+//     struct iphdr *ip_hdr = (struct iphdr *)buff; // En-tête IP de la réponse
+        
+//         // En-tête IP de TON paquet original (situé juste après l'en-tête ICMP d'erreur)
+//         int ip_hdr_len = ip_hdr->ihl * 4;
+//         struct iphdr *orig_ip_hdr = (struct iphdr *)(buff + ip_hdr_len + sizeof(struct icmphdr));
+        
+//         // En-tête ICMP d'origine
+//         int orig_ip_len = orig_ip_hdr->ihl * 4;
+//         struct icmphdr *orig_icmp = (struct icmphdr *)((char *)orig_ip_hdr + orig_ip_len);
+
+//         // 2. Formatage IP Hdr Dump
+//         printf("IP Hdr Dump:\n ");
+//         // Affiche l'en-tête IP sous forme d'octets hexadécimaux (20 octets)
+//         unsigned char *ip_raw = (unsigned char *)ip_hdr;
+//         for (int i = 0; i < ip_hdr_len; i++) {
+//             printf("%02x", ip_raw[i]);
+//             if ((i + 1) % 2 == 0) printf(" "); // Espace tous les 2 octets
+//         }
+//         printf("\n");
+
+//         // 3. Décodage détaillé des champs de l'en-tête IP
+//         char src_str[INET_ADDRSTRLEN], dst_str[INET_ADDRSTRLEN];
+//         inet_ntop(AF_INET, &(ip_hdr->saddr), src_str, INET_ADDRSTRLEN);
+//         inet_ntop(AF_INET, &(ip_hdr->daddr), dst_str, INET_ADDRSTRLEN);
+
+//         printf(" Vr HL TOS  Len   ID Flg  off TTL Pro  cks      Src      Dst Data\n");
+//         printf("  %1x  %1x  %02x %04x %04x   %1x %04x  %02x  %02x %04x %s  %s\n",
+//                ip_hdr->version,
+//                ip_hdr->ihl,
+//                ip_hdr->tos,
+//                ntohs(ip_hdr->tot_len),
+//                ntohs(ip_hdr->id),
+//                (ntohs(ip_hdr->frag_off) >> 13) & 0x07, // Flags (DF, MF)
+//                ntohs(ip_hdr->frag_off) & 0x1FFF,       // Offset
+//                ip_hdr->ttl,
+//                ip_hdr->protocol,
+//                ntohs(ip_hdr->check),
+//                src_str,
+//                dst_str);
+
+//         // 4. Détails ICMP (Paquet original retourné)
+//         uint16_t orig_id  = ntohs(orig_icmp->un.echo.id);
+//         uint16_t orig_seq = ntohs(orig_icmp->un.echo.sequence);
+
+//         printf("ICMP: type %d, code %d, size %d, id 0x%04x, seq 0x%04x\n",
+//                icmp_r_buff->type, 
+//                icmp_r_buff->code, 
+//                ping->size, 
+//                orig_id,   // On affiche l'ID de TON paquet original
+//                orig_seq); // On affiche le SEQ de TON paquet original
+// }

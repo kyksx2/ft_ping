@@ -12,6 +12,7 @@ p_data	initStruct(t_args args) {
 		ping.ttl = 0;
 	ping.seq = 0;
 	ping.verbose = args.verbose;
+	ping.size = 0;
 	ping.pack_trans = 0;
 	ping.pack_recv = 0;
 	ping.pack_loss = 0;

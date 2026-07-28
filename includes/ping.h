@@ -42,6 +42,7 @@ typedef struct ping_data
 	int		pack_loss;
 
 	bool	verbose;
+	int		size;
 
 	double	rtt_total;
 	int		rtt_count;

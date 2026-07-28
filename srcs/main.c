@@ -50,7 +50,7 @@ void	handle_sigs(int sig) {
 
 static t_args	getArgs(int ac, char **av) {
 	if (ac < 2) {
-		fprintf(stderr, "ft_ping: usage error: Destination address required\n");
+		fprintf(stderr, "ft_ping: missing host operand\nTry 'ping --help' or 'ping --usage' for more information.\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -59,6 +59,8 @@ static t_args	getArgs(int ac, char **av) {
 	start.hostname = NULL;
 	start.ttl = 0;
 	start.ttl_use = false;
+	bool help = false;
+	bool usage = false;
 
 	for (int i = 1; av[i]; i++) {
 		if (strcmp(av[i], "-v") == 0)
@@ -74,6 +76,14 @@ static t_args	getArgs(int ac, char **av) {
 				exit(EXIT_FAILURE);
 			}
 		}
+		else if (strcmp(av[i], "--help") == 0 || strcmp(av[i], "-?") == 0) {
+			help = true;
+			break;
+		}
+		else if (strcmp(av[i], "--usage") == 0) {
+			usage = true;
+			break;
+		}
 		else {
 			if (start.hostname == NULL)
 				start.hostname = av[i];
@@ -84,6 +94,18 @@ static t_args	getArgs(int ac, char **av) {
 		}
 	}
 
+	if (help) {
+		printf("Usage: ping [OPTION...] HOST ...\nSend ICMP ECHO_REQUEST packets to network hosts.\n\n");
+		printf("Options valid for all request types:\n\n --ttl N		specify N as time-to-live\n -v			verbose output\n\n");
+		printf(" Options valid for --echo requests:\n\n -?, --help		give this help list\n     --usage		give a short usage message\n\n");
+		printf("Mandatory or optional arguments to long options are also mandatory or optional\nfor any corresponding short options.\n\nOptions marked with (root only) are available only to superuser.\n\nReport bugs to <bug-inetutils@gnu.org>.\n");
+		exit(0);
+	}
+	else if (usage) {
+		printf("Usage: ./ft_ping [-v?] [--ttl N] [--help] [--usage] HOST ...\n");
+		exit(0);
+	}
+
 	if (start.hostname == NULL) {
 		fprintf(stderr, "ft_ping: missing host operand\n");
 		exit(EXIT_FAILURE);
@@ -91,8 +113,14 @@ static t_args	getArgs(int ac, char **av) {
 	return start;
 }
 
-int main(int ac, char **av) {
+static void	timetowait(struct timeval start, struct timeval end) {
+	long elapsed = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
 
+	if (elapsed < 1000000)
+		usleep(1000000 - elapsed);
+}
+
+int main(int ac, char **av) {
 	t_args args = getArgs(ac, av);
 	p_data	ping = initStruct(args);
 	recupAddrInfo(&ping);
@@ -121,7 +149,6 @@ int main(int ac, char **av) {
 			perror("setsockopt");
 			return (1);
 		}
-
 	}
 	if (ping.verbose) {
 		uint16_t id = (uint16_t)getpid();
@@ -131,12 +158,15 @@ int main(int ac, char **av) {
 		printf("PING %s (%s): 56 data bytes\n", ping.hostname, ping.ip);
 	// 56 est la taille du msg 64 = 56 + 8 (octets de l'en-tete)
 	while (1) {
+		struct timeval start, end;
+		gettimeofday(&start, NULL);
 		sendEcho(&ping);
 		receveEcho(&ping);
 		ping.seq++;
         if (ping.pack_trans > 0)
 	        ping.pack_loss = ((ping.pack_trans - ping.pack_recv) * 100) / ping.pack_trans;
-		sleep(1);
+		gettimeofday(&end, NULL);
+		timetowait(start, end);
 	}
 	return (0);
 }
